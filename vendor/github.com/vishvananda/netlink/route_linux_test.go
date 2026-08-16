@@ -5,10 +5,10 @@ package netlink
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"testing"
 
+	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 
@@ -256,38 +256,17 @@ func TestDeserializeRouteBufferAliasingFix(t *testing.T) {
 
 // buildRtMsg constructs a minimal netlink RtMsg with a single attribute for testing.
 func buildRtMsg(family int, dstLen uint8, attrType uint16, attrValue []byte) []byte {
-	buf := new(bytes.Buffer)
+	rtMsg := nl.NewRtMsg()
+	rtMsg.Family = uint8(family)
+	rtMsg.Dst_len = dstLen
+	rtMsg.Src_len = 0
+	rtMsg.Tos = 0
+	rtMsg.Table = 0
+	rtMsg.Protocol = 0
+	rtMsg.Scope = 0
+	rtMsg.Type = 0
+	rtMsg.Flags = 0
 
-	// RtMsg struct (28 bytes per linux/rtnetlink.h)
-	rtMsg := struct {
-		Family   uint8
-		DstLen   uint8
-		SrcLen   uint8
-		TOS      uint8
-		Table    uint32
-		Protocol uint32
-		Scope    uint32
-		Type     uint32
-		Flags    uint32
-	}{
-		Family:   uint8(family),
-		DstLen:   dstLen,
-		SrcLen:   0,
-		TOS:      0,
-		Table:    0,
-		Protocol: 0,
-		Scope:    0,
-		Type:     0,
-		Flags:    0,
-	}
-
-	binary.Write(buf, binary.LittleEndian, rtMsg)
-
-	// Append RTA attribute: Len (uint16) + Type (uint16) + Value
-	attrLen := uint16(4 + len(attrValue))
-	binary.Write(buf, binary.LittleEndian, attrLen)
-	binary.Write(buf, binary.LittleEndian, attrType)
-	buf.Write(attrValue)
-
-	return buf.Bytes()
+	attr := nl.NewRtAttr(int(attrType), attrValue)
+	return append(rtMsg.Serialize(), attr.Serialize()...)
 }
